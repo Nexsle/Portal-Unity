@@ -43,74 +43,45 @@ public class Portal : MonoBehaviour
         return;
     }
 
+
     public void Render()
-    { 
-        // Skip rendering if player is not looking at the linked portal
+    {
+
+
         if (!CameraUtility.VisibleFromCamera(linkedPortal.screen, playerCam))
         {
             return;
         }
         CreateViewTexture();
 
-        var localToWorldMatrix = playerCam.transform.localToWorldMatrix;
-        var renderPositions = new Vector3[recursionLimit];
-        var renderRotation = new Quaternion[recursionLimit];
-
-        int startIndex = 0;
-        portalCam.projectionMatrix = playerCam.projectionMatrix;
-
-        //calculate recursion portal
-        for(int i = 0; i < recursionLimit; i++)
+        // Render with recursion levels
+        for (int recursionLevel = recursionLimit - 1; recursionLevel >= 0; recursionLevel--)
         {
-            if(i > 0)
+            Debug.Log($"Rendering recursion level {recursionLevel}");
+            // Start fresh from player camera each time
+            portalCam.transform.position = playerCam.transform.position;
+            portalCam.transform.rotation = playerCam.transform.rotation;
+
+            // Apply portal transformation multiple times for this recursion level
+            for (int i = 0; i <= recursionLevel; i++)
             {
-                //no need to recursive render if portal is not visble through other portal
-                if(!CameraUtility.BoundsOverlap(screenMeshFilter, linkedPortal.screenMeshFilter, portalCam))
-                {
-                    break;
-                }
+                // Position the camera behind the other portal
+                Vector3 relativePos = transform.InverseTransformPoint(portalCam.transform.position);
+                relativePos = Quaternion.Euler(0.0f, 180.0f, 0.0f) * relativePos;
+                portalCam.transform.position = linkedPortal.transform.TransformPoint(relativePos);
+
+                // Rotate the camera to look through the other portal
+                Quaternion relativeRot = Quaternion.Inverse(transform.rotation) * portalCam.transform.rotation;
+                relativeRot = Quaternion.Euler(0.0f, 180.0f, 0.0f) * relativeRot;
+                portalCam.transform.rotation = linkedPortal.transform.rotation * relativeRot;
             }
 
-            localToWorldMatrix = transform.localToWorldMatrix * linkedPortal.transform.worldToLocalMatrix * localToWorldMatrix;
-            int renderOrderIndex = recursionLimit - i - 1;
-            renderPositions[renderOrderIndex] = localToWorldMatrix.GetColumn(3);
-            renderRotation[renderOrderIndex] = localToWorldMatrix.rotation;
-
-            Quaternion flippedRotation = renderRotation[renderOrderIndex] * Quaternion.Euler(0, 180, 0);
-
-            Debug.Log($"Recursion {i}: Portal camera position: {renderPositions[renderOrderIndex]}");
-            Debug.Log($"Recursion {i}: Portal camera rotation: {renderRotation[renderOrderIndex].eulerAngles}");
-            Debug.Log($"Player position: {playerCam.transform.position}");
-            Debug.Log($"Player rotation: {playerCam.transform.rotation.eulerAngles}");
-            
-
-            portalCam.transform.SetPositionAndRotation(renderPositions[renderOrderIndex], flippedRotation);
-            portalCam.transform.RotateAround(linkedPortal.transform.position, Vector3.up, 180);
-
-            Debug.Log($"Portal cam rotation AFTER: {portalCam.transform.rotation.eulerAngles}");
-            startIndex = renderOrderIndex;
-        }
-
-        //hide screen so camera can look through
-        screen.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
-        linkedPortal.screen.material.SetInteger("displayMask", 0);
-
-        for(int i = startIndex; i < recursionLimit; i++)
-        {
-            portalCam.transform.SetPositionAndRotation(renderPositions[i], renderRotation[i]);
             SetNearClipPlane();
             portalCam.Render();
 
-            if(i == startIndex)
-            {
-                linkedPortal.screen.material.SetInteger("displayMask", 1);
-            }
-
+            // Only need one render for the deepest level
+            if (recursionLevel == 0) break;
         }
-
-        screen.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
-
-
     }
 
     public void PostPortalRender()

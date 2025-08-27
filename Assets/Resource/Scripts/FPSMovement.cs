@@ -17,7 +17,7 @@ public class FPSMovement : MonoBehaviour
     Camera cam;
     public float yaw;
     public float pitch;
-    float smoothYaw;
+    public float smoothYaw;
     float smoothPitch;
 
     float yawSmoothV;
@@ -49,6 +49,12 @@ public class FPSMovement : MonoBehaviour
 
     void Update()
     {
+        if(Input.GetKeyDown(KeyCode.R))
+        {
+            yaw += 180f; // Update the internal yaw variable
+            smoothYaw = yaw; // Also update smoothYaw to avoid interpolation delay
+        }
+
         if (Input.GetKeyDown(KeyCode.P))
         {
             Cursor.lockState = CursorLockMode.None;
